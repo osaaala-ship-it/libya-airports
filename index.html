@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مطارات ليبيا | جدول الرحلات والاستعلامات</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .modal { display: none; background-color: rgba(0, 0, 0, 0.5); }
+        .modal.active { display: flex; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <header class="bg-blue-900 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold tracking-wider text-yellow-400">مطارات ليبيا</h1>
+            <nav class="space-x-4 space-x-reverse hidden md:block">
+                <a href="#" class="hover:text-yellow-400">الرئيسية</a>
+                <a href="#" class="hover:text-yellow-400">للمعلنين</a>
+                <a href="#" class="hover:text-yellow-400">استفسارات الذكاء الاصطناعي</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container mx-auto mt-4 px-4">
+        <div class="bg-gray-200 border-2 border-dashed border-gray-400 h-24 flex items-center justify-center rounded-lg cursor-pointer hover:bg-gray-300 transition">
+            <span class="text-gray-500 font-semibold">مساحة إعلانية متاحة - اضغط هنا للإعلان معنا</span>
+        </div>
+    </div>
+
+    <main class="container mx-auto mt-8 px-4 mb-16">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-blue-900">جدول رحلات اليوم</h2>
+            <p class="text-sm text-gray-500" id="currentDate">جاري تحميل البيانات...</p>
+        </div>
+
+        <div class="overflow-x-auto bg-white rounded-lg shadow">
+            <table class="min-w-full table-auto text-right">
+                <thead class="bg-blue-900 text-white">
+                    <tr>
+                        <th class="px-6 py-3">رقم الرحلة</th>
+                        <th class="px-6 py-3">الخطوط الجوية</th>
+                        <th class="px-6 py-3">المطار</th>
+                        <th class="px-6 py-3">الوجهة</th>
+                        <th class="px-6 py-3">الوقت</th>
+                        <th class="px-6 py-3">الحالة</th>
+                    </tr>
+                </thead>
+                <tbody id="flightsTableBody" class="divide-y divide-gray-200">
+                    </tbody>
+            </table>
+        </div>
+    </main>
+
+    <div id="infoModal" class="modal fixed inset-0 z-50 items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-2xl max-w-md w-full relative">
+            <button onclick="closeModal()" class="absolute top-4 left-4 text-gray-500 hover:text-red-500 font-bold text-xl">&times;</button>
+            <h3 id="modalTitle" class="text-2xl font-bold text-blue-900 mb-4"></h3>
+            <p id="modalContent" class="text-gray-600 leading-relaxed"></p>
+            <div class="mt-6 flex justify-end">
+                <button onclick="closeModal()" class="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ضع رابط الـ CSV الذي نسخته من جداول جوجل هنا بين القوسين
+        const SHEETS_CSV_URL = '[https://docs.google.com/spreadsheets/d/e/2PACX-1vTz6T2Wz7K4qV5Y9G8jL1z8J_6N2Z2_iV1JzV2u6J6V_4a5c6J-aJzV1xZ2v2x2x2x2x2x2/pub?output=csv](https://docs.google.com/spreadsheets/d/e/2PACX-1vTz6T2Wz7K4qV5Y9G8jL1z8J_6N2Z2_iV1JzV2u6J6V_4a5c6J-aJzV1xZ2v2x2x2x2x2x2/pub?output=csv)';
+
+        // إعداد تاريخ اليوم
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('currentDate').innerText = "تحديث اليوم: " + new Date().toLocaleDateString('ar-LY', options);
+
+        // دالة جلب البيانات وتحليلها
+        async function fetchFlights() {
+            try {
+                if (SHEETS_CSV_URL === 'ضع_رابط_CSV_الخاص_بـ_جوجل_شيت_هنا') {
+                    document.getElementById('flightsTableBody').innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">يرجى إضافة رابط Google Sheets في الكود أولاً ليتم عرض الرحلات.</td></tr>`;
+                    return;
+                }
+
+                const response = await fetch(SHEETS_CSV_URL);
+                const data = await response.text();
+                
+                // تحويل نص CSV إلى مصفوفة بيانات
+                const rows = data.split('\n').slice(1); // تخطي الصف الأول (العناوين)
+                const tableBody = document.getElementById('flightsTableBody');
+                tableBody.innerHTML = ''; // تفريغ الجدول قبل الشحن
+
+                rows.forEach(row => {
+                    // تقسيم السطر بناءً على الفواصل مع مراعاة النصوص المقتبسة
+                    const columns = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || row.split(',');
+                    
+                    if (columns.length >= 6) {
+                        const id = columns[0]?.replace(/"/g, '').trim();
+                        const airline = columns[1]?.replace(/"/g, '').trim();
+                        const airport = columns[2]?.replace(/"/g, '').trim();
+                        const destination = columns[3]?.replace(/"/g, '').trim();
+                        const time = columns[4]?.replace(/"/g, '').trim();
+                        const status = columns[5]?.replace(/"/g, '').trim();
+                        const airlineInfo = columns[6]?.replace(/"/g, '').trim() || 'لا تتوفر معلومات إضافية حالياً.';
+                        const airportInfo = columns[7]?.replace(/"/g, '').trim() || 'لا تتوفر معلومات إضافية حالياً.';
+
+                        let statusColor = "text-green-600";
+                        if(status === 'متأخرة' || status === 'ملغية') statusColor = "text-red-600";
+                        if(status === 'مقلعة') statusColor = "text-blue-600";
+
+                        const tr = document.createElement('tr');
+                        tr.className = "hover:bg-gray-50 transition";
+                        tr.innerHTML = `
+                            <td class="px-6 py-4 font-semibold text-gray-700">${id}</td>
+                            <td class="px-6 py-4 text-blue-600 cursor-pointer hover:underline" onclick="openModal('${airline}', '${airlineInfo}')">${airline}</td>
+                            <td class="px-6 py-4 text-blue-600 cursor-pointer hover:underline" onclick="openModal('${airport}', '${airportInfo}')">${airport}</td>
+                            <td class="px-6 py-4">${destination}</td>
+                            <td class="px-6 py-4">${time}</td>
+                            <td class="px-6 py-4 font-bold ${statusColor}">${status}</td>
+                        `;
+                        tableBody.appendChild(tr);
+                    }
+                });
+            } catch (error) {
+                console.error('خطأ في جلب البيانات:', error);
+                document.getElementById('flightsTableBody').innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">حدث خطأ أثناء تحميل جدول الرحلات. يرجى المحاولة لاحقاً.</td></tr>`;
+            }
+        }
+
+        // تشغيل دالة جلب البيانات عند فتح الموقع
+        fetchFlights();
+
+        // دوال التحكم بالنافذة المنبثقة
+        const modal = document.getElementById('infoModal');
+        function openModal(title, content) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalContent').innerText = content;
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+        }
+
+        window.onclick = function(event) {
+            if (event.target === modal) { closeModal(); }
+        }
+    </script>
+</body>
+</html>
